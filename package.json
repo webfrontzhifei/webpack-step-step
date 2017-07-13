@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node build/dev-server.js"
   },
   "repository": {
     "type": "git",
@@ -16,5 +16,16 @@
   "bugs": {
     "url": "https://github.com/webfrontzhifei/webpack-step-step/issues"
   },
-  "homepage": "https://github.com/webfrontzhifei/webpack-step-step#readme"
+  "homepage": "https://github.com/webfrontzhifei/webpack-step-step#readme",
+  "dependencies": {
+    "chalk": "^2.0.1",
+    "semver": "^5.3.0",
+    "shelljs": "^0.7.8",
+    "vue": "^2.4.1",
+    "vue-router": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=4.0.0",
+    "npm": ">=3.0.0"
+  }
 }
