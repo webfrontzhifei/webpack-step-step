@@ -79,6 +79,10 @@ interpret@^1.0.0:
   version "1.0.3"
   resolved "http://r.cnpmjs.org/interpret/download/interpret-1.0.3.tgz#cbc35c62eeee73f19ab7b10a801511401afc0f90"
 
+lodash@^4.17.4:
+  version "4.17.4"
+  resolved "http://r.cnpmjs.org/lodash/download/lodash-4.17.4.tgz#78203a4d1c328ae1d86dca6460e369b57f4055ae"
+
 minimatch@^3.0.4:
   version "3.0.4"
   resolved "http://r.cnpmjs.org/minimatch/download/minimatch-3.0.4.tgz#5166e286457f03306064be5497e8dbb0c3d32083"
@@ -136,6 +140,12 @@ vue-router@^2.7.0:
 vue@^2.4.1:
   version "2.4.1"
   resolved "http://r.cnpmjs.org/vue/download/vue-2.4.1.tgz#76e0b8eee614613532216b7bfe784e0b5695b160"
+
+webpack-merge@^4.1.0:
+  version "4.1.0"
+  resolved "http://r.cnpmjs.org/webpack-merge/download/webpack-merge-4.1.0.tgz#6ad72223b3e0b837e531e4597c199f909361511e"
+  dependencies:
+    lodash "^4.17.4"
 
 wrappy@1:
   version "1.0.2"
