@@ -43,3 +43,38 @@ Object.keys(proxyTable).forEach(function (context) {
   }
   app.use(proxyMiddleware(options.filter || context, options));
 });
+
+app.use(require('connect-history-api-fallback')());
+
+app.use(devMiddleware);
+app.use(hotMiddleware);
+
+var uri = 'http://localhost:'+port;
+
+var _resolve;
+var readyPromise = new Promise(resolve => {
+  _resolve = resolve;
+});
+
+console.log('> Starting dev server');
+
+devMiddleware.waitUntilValid(() => {
+  console.log('> Listening at '+ uri + '\n');
+
+  if(autoOpenBrowser && process.env.NODE_ENV !== 'testing') {
+    opn(uri);
+  }
+  _resolve();
+});
+
+var server = app.listen(port);
+
+module.exports = {
+  ready: readyPromise,
+  close: () => {
+    server.close();
+  }
+}
+
+http://www.sohu.com/a/145015639_655394
+
