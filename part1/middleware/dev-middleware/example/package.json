@@ -1,0 +1,17 @@
+{
+  "name": "dev-middleware",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node express.config.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "ejs": "^2.5.6",
+    "express": "^4.15.3",
+    "webpack": "^2.6.1",
+    "webpack-dev-middleware": "^1.10.2"
+  }
+}
