@@ -17,7 +17,6 @@ var compiler = webpack(webpackConf);
 
 app.use(webpackMiddleware(compiler, {
     publicPath: webpackConf.output.publicPath,
-    lazy: true,
 }));
 
 app.get("/", function(req, res) {
