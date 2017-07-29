@@ -52,6 +52,7 @@
     ```
 
     通过step1以及step2，就能看到webpack的热家载效果了，效果展示。
+
     ![效果展示](http://otsuptraw.bkt.clouddn.com/doc1.gif)
 
     step3: 源码分析。
