@@ -51,8 +51,53 @@
     app.listen(3333);
     ```
 
-    通过step1以及step2，就能看到webpack的热家载效果了，效果展示。
+    通过step1以及step2，就能看到webpack的热加载效果了，效果展示。
 
     ![效果展示](http://otsuptraw.bkt.clouddn.com/doc1.gif)
 
-    step3: 源码分析。
+  3. 源码分析。
+
+     step1:首先看webpack-dev-middleware包，项目目录结构为:
+
+     ![项目结构](http://otsuptraw.bkt.clouddn.com/webpack-dev-middleware-struc.PNG)
+
+     step2：逐一破解：
+
+     middleware.js分析：
+     line 6, var require("./lib/GetFilenameFromUrl");引入通过url得到fileName的方法；
+     line 11，方法入口，引入compiler以及option配置，可以看到这是常规的结构方法，引入option，然后定义默认值（line 13),处理默认逻辑（line 22）.
+     line 22, 初始化的处理，我们进入shared.js文件，深入分析一下。
+
+     shared.js分析：
+     share结构：
+
+     ![对象结构](http://otsuptraw.bkt.clouddn.com/shared.js.PNG)
+
+     line 223，share.setOptions(context.options);,此时的options是我们配置中的
+     ```js
+     {
+         publicPath: webpackConf.output.publicPath,
+     }
+     ```
+     line 9~36，定义了setOptions方法，简单一撇，重新定义了options的reporter方法，watchOptions.aggregateTimeout,options的stats（统计信息对象），mimeTypes定义。（配置信息不熟悉的可以参考官方[github仓库中的example](https://github.com/webpack/webpack-dev-middleware)
+
+     line 224, share.setFs(context.compiler);
+
+     可以看到，setFs方法做了两件事，检查compiler.outputPath是否为绝对路径（默认为process.cwd()），如果为相对路径，抛出错误；定义compiler.outputFileSystem = new MemoryFileSystem();这就是webpack-dev-middleware的精髓所在了，使用内存文件系统，而不是硬盘中的文件，这样能够提升编译的速度（稍后详细分析这个玩意儿)。
+
+     line 226, context.compiler.plugin('done', share.compilerDone);
+
+     定义了一个done事件钩子函数，该函数内主要是reporter编译的信息以及执行context.callbacks回调函数。
+
+     line 227，228,229，
+
+     ```js
+    context.compiler.plugin("invalid", share.compilerInvalid);
+   	context.compiler.plugin("watch-run", share.compilerInvalid);
+   	context.compiler.plugin("run", share.compilerInvalid);
+     ```
+
+     定义了一个invalid事件（监控的编译变无效后），watch-run(watch后开始编译之前)，run（读取记录之前）的回调，都是share.compilerInvalid方法，该方法主要还是根据state状态，report编译的状态信息。
+
+     line 231，share.startWatch(),开始监控.可以看到主要逻辑在compiler.watch();
+     line 85，可以看到return webpackDevMiddleware,最终返回了express的中间件。
