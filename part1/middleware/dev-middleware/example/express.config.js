@@ -17,10 +17,11 @@ var compiler = webpack(webpackConf);
 
 app.use(webpackMiddleware(compiler, {
     publicPath: webpackConf.output.publicPath,
+    // lazy: true,
 }));
 
 app.get("/", function(req, res) {
     res.render("index");
 });
 
-app.listen(3333);
+app.listen(3334);
