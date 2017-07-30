@@ -114,8 +114,10 @@
 
      line 26~35定义了goNext()方法，该方法首先判断是否服务器端渲染，如果不是，直接next()处理，否则，调用了shared的ready()方法（根据state状态，处理逻辑)。
 
-     line 36~38，非get请求，直接goNext().
-     line 40~41，找不到请求的文件，直接goNext().
+     line 36~38，非get请求，直接goNext()。
+
+     line 40~41，找不到请求的文件，直接goNext()。
+
      line 43~78，处理逻辑，可以看到精简后结构。
 
      ![](http://otsuptraw.bkt.clouddn.com/process.PNG)
