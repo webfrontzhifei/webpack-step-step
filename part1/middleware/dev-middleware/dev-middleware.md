@@ -89,15 +89,23 @@
 
      定义了一个done事件钩子函数，该函数内主要是reporter编译的信息以及执行context.callbacks回调函数。
 
-     line 227，228,229，
-
+     line 227，228,229，源码：
      ```js
     context.compiler.plugin("invalid", share.compilerInvalid);
    	context.compiler.plugin("watch-run", share.compilerInvalid);
    	context.compiler.plugin("run", share.compilerInvalid);
      ```
-
      定义了一个invalid事件（监控的编译变无效后），watch-run(watch后开始编译之前)，run（读取记录之前）的回调，都是share.compilerInvalid方法，该方法主要还是根据state状态，report编译的状态信息。
 
-     line 231，share.startWatch(),开始监控.可以看到主要逻辑在compiler.watch();
+     line 231，share.startWatch(),开始监控.可以看到主要逻辑在compiler.watch();纳尼？绕了一圈还是调用了compiler的原型方法watch。瞅一瞅，webpack/lib/compiler.js文件的line 216，
+     ```js
+     Compiler.prototype.watch = function(watchOptions, handler) {
+     	this.fileTimestamps = {};
+     	this.contextTimestamps = {};
+     	var watching = new Watching(this, watchOptions, handler);
+     	return watching;
+     };
+     ```
+     同理，看到 webpack/lib/webpack.js的42行，可以看到，当webpack命令时，若有--watch，实际同样是调用的compiler.watch方法。
+
      line 85，可以看到return webpackDevMiddleware,最终返回了express的中间件。
