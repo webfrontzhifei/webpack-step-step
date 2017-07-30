@@ -128,7 +128,7 @@
 
      至此，game over！
 
-    4. 延伸扩展；
+ 4. 延伸扩展；
 
     lazy模式下什么表现呢？？？深入shared.js会发现，当lazy为true（shared.js文件line 169~175）时，npm run test并不会执行编译，而是当浏览器发出请求req时，在shared.js的handleRequest方法（line 191）的194行执行了rebuild()方法，在rebuild方法的180行执行了context.compiler.run()进行了编译。在修改后，webpack不会立即执行编译，而是等到req再次请求时编译。也就是在lazy模式下，每次只有在浏览器请求时，才执行一次compile,watch并没有什么卵用啊。
 
