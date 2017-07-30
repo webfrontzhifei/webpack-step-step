@@ -114,9 +114,9 @@
 
      line 26~35定义了goNext()方法，该方法首先判断是否服务器端渲染，如果不是，直接next()处理，否则，调用了shared的ready()方法（根据state状态，处理逻辑)。
 
-     line 36~line38，非get请求，直接goNext().
-     line 40~41,找不到请求的文件，直接goNext().
-     line 43~78,处理逻辑，可以看到精简后结构。
+     line 36~38，非get请求，直接goNext().
+     line 40~41，找不到请求的文件，直接goNext().
+     line 43~78，处理逻辑，可以看到精简后结构。
 
      ![](http://otsuptraw.bkt.clouddn.com/process.PNG)
 
@@ -129,6 +129,7 @@
      至此，game over！
 
     4. 延伸扩展；
+
       lazy模式下什么表现呢？？？深入shared.js会发现，当lazy为true（shared.js文件line 169~175）时，npm run test并不会执行编译，而是当浏览器发出请求req时，在shared.js的handleRequest方法（line 191）的194行执行了rebuild()方法，在rebuild方法的180行执行了context.compiler.run()进行了编译。在修改后，webpack不会立即执行编译，而是等到req再次请求时编译。也就是在lazy模式下，每次只有在浏览器请求时，才执行一次compile,watch并没有什么卵用啊。
 
       正常模式呢？表现是怎么样？正常模式，npm run test时，代码运行到startWatch(),也就是执行到compiler的watch()方法，深入compiler源码可以看到，Compiler.js文件的114行，执行到invalidate()方法，判断是否已经running，如果为false，进入_go()方法，执行了compile()逻辑。也就是说，在没有浏览器请求时，就已经执行了编译。然后在修改了entry相关的文件后，watch会执行编译，同时会触发compiler的invalid事件（在Compiler.js的watch方法的116行可以看到）也就是会执行到Shared.js的229行，执行compilerInvalid方法，打印compiling信息。
