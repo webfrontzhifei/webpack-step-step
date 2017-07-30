@@ -91,9 +91,9 @@
 
      line 227，228,229，源码：
      ```js
-    context.compiler.plugin("invalid", share.compilerInvalid);
-   	context.compiler.plugin("watch-run", share.compilerInvalid);
-   	context.compiler.plugin("run", share.compilerInvalid);
+     context.compiler.plugin("invalid", share.compilerInvalid);
+   	 context.compiler.plugin("watch-run", share.compilerInvalid);
+   	 context.compiler.plugin("run", share.compilerInvalid);
      ```
      定义了一个invalid事件（监控的编译变无效后），watch-run(watch后开始编译之前)，run（读取记录之前）的回调，都是share.compilerInvalid方法，该方法主要还是根据state状态，report编译的状态信息。
 
