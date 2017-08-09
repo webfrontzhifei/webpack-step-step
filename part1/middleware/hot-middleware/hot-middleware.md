@@ -8,6 +8,7 @@
    2. 在entry中新增webpack-hot-middleware/client
    3. 在express中加入中间件webpack-hot-middleware.
    详细的配置文件也可以看[我的github](https://github.com/webfrontzhifei/webpack-step-step/tree/master/part1/middleware/hot-middleware/example)
+
    ```js
    // webpack.config.js
    const path = require('path');
@@ -16,12 +17,11 @@
        entry: ['webpack-hot-middleware/client.js', './app.js'],
        output: {
            publicPath: "/assets/",
-           filename: 'bundle.js',
-           //path: '/'   //ֻʹ�� dev-middleware ���Ժ��Ա�����
+           filename: 'bundle.js',     
        },
        plugins: [
            new webpack.HotModuleReplacementPlugin(),
-           new webpack.NoEmitOnErrorsPlugin()   //����ʱֻ��ӡ���󣬵������¼���ҳ��
+           new webpack.NoEmitOnErrorsPlugin()   
        ]
    };
    // express.config.js
@@ -37,4 +37,27 @@
    ```
 3. 重点，重点，重点，源代码分析。
    通过上面的配置，我们可以发现webpack实现了热加载，那么是如何实现的呢？进入正题。
-   webpack-hot-middleware中的入口文件middleware.js，哇，只有100多行。
+
+   1. webpack-hot-middleware中的入口文件middleware.js，哇，只有100多行。
+   整个文件的结构如下：
+
+   ![文件结构](http://otsuptraw.bkt.clouddn.com/hot-middleware.js.PNG)
+
+   文件结构能够看到line6-36是核心。那么，我们深入分析，
+
+   line7-10定义了基本的option，分别定义了option的log方法，path路径以及server的socket响应时间。（哈哈，log方法怎么在插件都进行了定义！！！）
+
+   line 12创建了eventStream对象，这是个什么呢？line38-76,
+   ![](http://otsuptraw.bkt.clouddn.com/createEventStream.PNG)
+
+   好简单，就是执行了这两行，
+   ```js
+   setInterval(function heartbeatTick() {
+     everyClient(function(client) {
+       client.write("data: \uD83D\uDC93\n\n");
+     });
+   }, heartbeat).unref();
+   ```
+   每间隔heartbeat秒，遍历clients，每个client socket eventStream 写一个心（红心）。
+   ![红心](http://otsuptraw.bkt.clouddn.com/heart.PNG)
+   最后返回了一个handler以及publish方法的对象，也就是eventStream。
