@@ -17,11 +17,11 @@
        entry: ['webpack-hot-middleware/client.js', './app.js'],
        output: {
            publicPath: "/assets/",
-           filename: 'bundle.js',     
+           filename: 'bundle.js',
        },
        plugins: [
            new webpack.HotModuleReplacementPlugin(),
-           new webpack.NoEmitOnErrorsPlugin()   
+           new webpack.NoEmitOnErrorsPlugin()
        ]
    };
    // express.config.js
@@ -61,3 +61,96 @@
    每间隔heartbeat秒，遍历clients，每个client socket eventStream 写一个心（红心）。
    ![红心](http://otsuptraw.bkt.clouddn.com/heart.PNG)
    最后返回了一个handler以及publish方法的对象，也就是eventStream。
+
+   下一步就是line 15,在compiler编译时，加入一个回调处理函数。
+   ```js
+   compiler.plugin("compile", function() {
+     latestStats = null;
+     if (opts.log) opts.log("webpack building...");
+     eventStream.publish({action: "building"});
+   });
+   ```
+   上述这种通过node定义webpack插件的方式很常见（其实可以理解为加入了一个事件处理函数）。它做了什么呢？对你的代码（如果参考我的代码的话，改变index.js即可），会发生什么呢？
+
+   ![](http://otsuptraw.bkt.clouddn.com/%E5%B1%8F%E5%B9%95%E5%BF%AB%E7%85%A7%202017-08-10%20%E4%B8%8A%E5%8D%889.39.37.png)
+
+   也就是通过客户端EventStream，向浏览器发送消息（"action: building").
+
+   ok!还有另一个（一共只有两个，窃喜，好简单）。
+
+   ```js
+   compiler.plugin("done", function(statsResult) {
+     // Keep hold of latest stats so they can be propagated to new clients
+     latestStats = statsResult;
+     publishStats("built", latestStats, eventStream, opts.log);
+   });
+   ```
+
+   另一个函数啊，publishStats().函数内部，又调用了extractBundles()，以及buildModuleMap
+
+   ```js
+   function extractBundles(stats) {
+     if (stats.modules) return [stats];
+     if (stats.children && stats.children.length) return stats.children;
+     return [stats];
+   }
+   ```
+
+   很简单的几行，就是将stats包装为数组，有子元素children，直接用，没有，就[stats]。
+
+   buildModuleMap就简单了，建立了一个key，value的map映射。
+
+   这就简单了，回到compiler的done回调函数，整个流程就是执行了抽取bundle，每个bundle执行一次eventStream的publish回调。
+
+   实例效果，也就是上图展示的那样了，那个built，看清楚了吧。
+
+   那么，接着继续！line25-35.
+
+   ```js
+   var middleware = function(req, res, next) {
+     if (!pathMatch(req.url, opts.path)) return next();
+     eventStream.handler(req, res);
+     if (latestStats) {
+       // Explicitly not passing in `log` fn as we don't want to log again on
+       // the server
+       publishStats("sync", latestStats, eventStream);
+     }
+   };
+   middleware.publish = eventStream.publish;
+   return middleware;
+   ```
+
+   重点来了。返回的中间件middleware,流程是这样滴：判断是不是__webpack_hmr(默认，可配置)，不是的话跳过，执行next()。是请求__webpack_hmr的话呢，执行eventStream的handler方法，处理请求。
+
+   ```js
+   handler: function(req, res) {
+     req.socket.setKeepAlive(true);
+     res.writeHead(200, {
+       'Access-Control-Allow-Origin': '*',
+       'Content-Type': 'text/event-stream;charset=utf-8',
+       'Cache-Control': 'no-cache, no-transform',
+       'Connection': 'keep-alive',
+       // While behind nginx, event stream should not be buffered:
+       // http://nginx.org/docs/http/ngx_http_proxy_module.html#proxy_buffering
+       'X-Accel-Buffering': 'no'
+     });
+     res.write('\n');
+     var id = clientId++;
+     clients[id] = res;
+     req.on("close", function(){
+       delete clients[id];
+     });
+   },
+   ```
+
+   其实就是，建立了一个eventStream。关键点：Content-Type: 'text/event-stream'。并且记录了请求的clients.
+
+   line29-32,就是判断如果已经编译完成，就向浏览器publish一个sync的消息。
+
+   至此,这个hot-middleware的服务器端的整个执行过程就分析完了。我们上文一直提到eventStream,作为EventStream，如果少了客户端怎么行呢？哈哈，别漏了这么重要的角色。
+
+   2. client.js
+      你应该还记得，上文中的配置webpack.config.js中，在entry中引入的“webpack-hot
+      -middleware/client.js”,对，这个就是client.js登上舞台的入口。
+4. 扩展。
+   unref以及plugin两种定义方式。

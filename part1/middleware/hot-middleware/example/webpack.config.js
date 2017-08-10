@@ -4,7 +4,7 @@
 const path = require('path');
 const webpack = require('webpack');
 module.exports = {
-    entry: ['webpack-hot-middleware/client.js', './app.js'],
+    entry: ['webpack-hot-middleware/client.js?reload=true', './app.js'],
     output: {
         publicPath: "/assets/",
         filename: 'bundle.js',
