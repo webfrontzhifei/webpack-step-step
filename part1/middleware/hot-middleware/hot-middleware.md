@@ -152,5 +152,139 @@
    2. client.js
       你应该还记得，上文中的配置webpack.config.js中，在entry中引入的“webpack-hot
       -middleware/client.js”,对，这个就是client.js登上舞台的入口。
+
+      line 4-33，做了一件事，就是配置，根据__resourceQuery,转化查询字符串中的配置项？不明白。__resourceQuery是webpack中的默认API，表示require某个模块时的查询字符串。例如，我们在entry的client.js这样写。
+      ```js
+        entry: ['webpack-hot-middleware/client.js?name="zzf"', './app.js'],
+      ```
+
+      那么，在client.js中取到__resourceQuery的值就是?name="zzf"
+
+      line 35-45,一次判断是否为客户端浏览器，是否支持EventSource。如果都支持的话，connect()连接server端。connect()方法就是这个client.js的全部了。
+
+      ```js
+      function connect() {
+        getEventSourceWrapper().addMessageListener(handleMessage);
+
+        function handleMessage(event) {
+          if (event.data == "\uD83D\uDC93") {
+            return;
+          }
+          try {
+            processMessage(JSON.parse(event.data));
+          } catch (ex) {
+            if (options.warn) {
+              console.warn("Invalid HMR message: " + event.data + "\n" + ex);
+            }
+          }
+        }
+      }
+      ```
+
+      line104执行了哪些呢？
+
+      ```js
+      function getEventSourceWrapper() {
+        if (!window.__whmEventSourceWrapper) {
+          window.__whmEventSourceWrapper = {};
+        }
+        if (!window.__whmEventSourceWrapper[options.path]) {
+          // cache the wrapper for other entries loaded on
+          // the same page with the same options.path
+          window.__whmEventSourceWrapper[options.path] = EventSourceWrapper();
+        }
+        return window.__whmEventSourceWrapper[options.path];
+      }
+      ```
+      上述主要执行了就是创建了EventSourceWrapper()的对象。那么EventSourceWrapper()执行了什么呢？
+
+      ```js
+      function EventSourceWrapper() {
+        var source;
+        var lastActivity = new Date();
+        var listeners = [];
+
+        init();
+        var timer = setInterval(function() {
+          if ((new Date() - lastActivity) > options.timeout) {
+            handleDisconnect();
+          }
+        }, options.timeout / 2);
+
+        function init() {
+          source = new window.EventSource(options.path);
+          source.onopen = handleOnline;
+          source.onerror = handleDisconnect;
+          source.onmessage = handleMessage;
+        }
+
+        function handleOnline() {
+          if (options.log) console.log("[HMR] connected");
+          lastActivity = new Date();
+        }
+
+        function handleMessage(event) {
+          lastActivity = new Date();
+          for (var i = 0; i < listeners.length; i++) {
+            listeners[i](event);
+          }
+        }
+
+        function handleDisconnect() {
+          clearInterval(timer);
+          source.close();
+          setTimeout(init, options.timeout);
+        }
+
+        return {
+          addMessageListener: function(fn) {
+            listeners.push(fn);
+          }
+        };
+      }
+      ```
+      主要执行逻辑就是在init()方法中，就是新建一个window.EventSource(options.path)对象。然后通过每隔10s轮询判断是否，已经20s(两次)连接失败了，就断开本次连接，然后在timeout20s后，重新尝试建立连接。最后返回一个对象，也就是对外抛出一个可以添加listener的口子。
+
+      line106-117,添加了这个事件监听处理函数，handleMessage(event)方法。这个方法，首先根据服务端返回的数据，是不是（心形 没错 "\uD83D\uDC93"就是红心），如果是，表示正常的轮询，直接return就可以。如果不是，调用processMessage处理，根据不同action，有不同的行为。这也就是middleware.js中的action行为。
+
+      我们再深入processMessage()方法，前两个action："building","built"就很简单了，就是一个console.log()提示。如果是sync就分多种情况了，warn,error。通过reporter(下文创建的)去处理。最后调用了processUpdate()，下文再详解。
+
+      还有两部分没有分析，就是createReporter().line134-190分析得到如下结论，reporter简单的区分了warn，error，并以不同的style（console控制台样式，不知道的自行恶补）提示信息。并且，如果是编译错误信息，通过overlay.js展示错误信息（创建一个遮罩层，打印出错误信息）。
+
+      现在，还遗漏了一个文件的分析，也就是processUpdate()方法。这其实是核心的玩意儿啊，不容忽视。分析后，就会发现，至此为止，还少了至关重要的一部，EventStream只是将变化，通知给了client端，但是client端怎么实现hmr的呢？核心逻辑就在processUpdate()方法中。
+
+      ```js
+      // Based heavily on https://github.com/webpack/webpack/blob/
+      //  c0afdf9c6abc1dd70707c594e473802a566f7b6e/hot/only-dev-server.js
+      ```
+      依赖这个玩意儿啊，hot/only-dev-server.js，这个玩意儿的分析在下一篇webpack-dev-server会深入分析。
+
+      返回正题，这里，line9-11判断了module.hot如果不支持，直接抛出error，这也就是webpack-hot-middleware必须配合HotModuleReplacementPlugin使用的原因，它是给webpack添加了module.hot能力的啊。
+
+      line24-132,也就是整个方法了，这个方法嵌套的还是蛮深的。
+
+      ```js
+      var reload = options.reload;
+      if (!upToDate(hash) && module.hot.status() == "idle") {
+        if (options.log) console.log("[HMR] Checking for updates on the server...");
+        check();
+      }
+      ```
+      首先获取options中的reload配置，还记得怎么配置的不？client.js?reload=true. 然后判断hash是否已经过期，也就是webpack进行了重新打包，manifest有变化，是的话，就check()检查变化的资源。
+
+      ```js
+      function upToDate(hash) {
+        if (hash) lastHash = hash;
+        return lastHash == __webpack_hash__;
+      }
+      ```
+      检查hash是否过期的方法，使用了这样一个__webpack_hash，这个是webpack给出的一个常量（可以通过webpack官网查询），它表示资源的hash值，也就是已经在浏览器端加载的资源的hash值。而hash，从上文中，我们还记得，这个玩意儿是EventStream传过来的新的hash值。对的，没有看错，判断文件是否变化，就是这么简单。
+
+      继续，check()方法。
+
+      ![](http://otsuptraw.bkt.clouddn.com/%E5%B1%8F%E5%B9%95%E5%BF%AB%E7%85%A7%202017-08-10%20%E4%B8%8B%E5%8D%887.01.54.png)
+
+      check()执行，从64行开始，module.hot.check(false, cb);
+
 4. 扩展。
    unref以及plugin两种定义方式。
