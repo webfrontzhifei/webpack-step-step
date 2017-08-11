@@ -7,6 +7,13 @@
    1. 在plugins中增加HotModuleReplacementPlugin().
    2. 在entry中新增webpack-hot-middleware/client
    3. 在express中加入中间件webpack-hot-middleware.
+   4. 在入口文件添加
+   ```js
+   //灰常重要，知会 webpack 允许此模块的热更新
+   if (module.hot) {
+       module.hot.accept();
+   }
+   ```
    详细的配置文件也可以看[我的github](https://github.com/webfrontzhifei/webpack-step-step/tree/master/part1/middleware/hot-middleware/example)
 
    ```js
@@ -284,7 +291,80 @@
 
       ![](http://otsuptraw.bkt.clouddn.com/%E5%B1%8F%E5%B9%95%E5%BF%AB%E7%85%A7%202017-08-10%20%E4%B8%8B%E5%8D%887.01.54.png)
 
-      check()执行，从64行开始，module.hot.check(false, cb);
+      check()执行，从64行开始，module.hot.check(false, cb);[源文档](https://webpack.js.org/api/hot-module-replacement/)
 
+      ```js
+      module.hot.check(autoApply, (error, outdatedModules) => {
+        // Catch errors and outdated modules...
+      });
+      ```
+      这就明白了这里module.hot.check检查webpack打包资源是否变化，将会沿着依赖树往上遍历。
+
+      再看一下回调函数cb
+      ![](http://otsuptraw.bkt.clouddn.com/%E5%B1%8F%E5%B9%95%E5%BF%AB%E7%85%A7%202017-08-11%20%E4%B8%8A%E5%8D%8810.01.13.png)
+
+      line33, 如果error，handleError()处理。handleError在line112-125很简单，就根据module.hot.status()获取hot module Replacement 进程的状态。(官方原话:Retrieve the current status of the hot module replacement process.),如果状态是abort或者fail,表示检查失败。。那么执行performReload().也就是刷新浏览器（window.location.reload()).
+
+      回归正题，line35-42可以看到，虽然不是error，但是updatedModules为undefined,也就是同样没有找到，执行了一样的逻辑，performReload().
+
+      line 52行，module.hot.apply()方法。为什么呢，还记得module.hot.check(false, cb)么，这里第一个参数为false表示需要手动调用module.hot.apply()。继续。
+
+      module.hot.apply(applyOptions, applyCallback);
+      ```js
+      var applyOptions = { ignoreUnaccepted: true };
+      ```
+      这个option的意思就很清晰了。还记得第一步中的第四条么，这里就是它的用武之地了。
+
+      ```js
+      var applyCallback = function(applyErr, renewedModules) {
+        if (applyErr) return handleError(applyErr);
+
+        if (!upToDate()) check();
+
+        logUpdates(updatedModules, renewedModules);
+      };
+      ```
+
+      这里代码就好玩了。首先检查applyErr是否出现，出现的话，handleError处理。然后再次检查了hash是否最新，如果不是的话，重新执行了check().不知道会不会有死循环的风险。。。最后，就是logUpdate().没什么技术了就，简单区分了下，然后打印log信息。
+
+      line52-60是promise的then处理。line64-71同样是如此。
+
+      That's all!
 4. 扩展。
-   unref以及plugin两种定义方式。
+
+   unref()方法。
+
+   还记得在client.js中有这么一处代码么？
+   ```js
+   setInterval(function heartbeatTick() {
+     everyClient(function(client) {
+       client.write("data: \uD83D\uDC93\n\n");
+     });
+   }, heartbeat).unref();
+   ```
+   这里，我们就介绍一下这个unref()方法，看看[官网](https://nodejs.org/dist/latest-v6.x/docs/api/timers.html#timers_timeout_unref)是怎么介绍的。
+   翻译成中文就是，当只有这一个timer处于active态时，并不需要事件循环去维持这个玩意儿，也就是process进程会退出。当然，如果有其他timer或者活动需要事件循环时，它也是可以跑着的。还不理解，这就是俗话：哎呀，我随便，你们要是没有吃的，我也不要了，要是有要的，就也给我一份。
+
+   哈哈。
+   测试一下！
+
+   ```js
+   var timer1 = setInterval(function() {
+     console.log('timer1');
+   }, 1000).unref();
+   ```
+   没有任何输出。
+
+   ![](http://otsuptraw.bkt.clouddn.com/%E5%B1%8F%E5%B9%95%E5%BF%AB%E7%85%A7%202017-08-11%20%E4%B8%8A%E5%8D%8810.59.31.png)
+
+   ```js
+   var timer1 = setInterval(function() {
+     console.log('timer1');
+   }, 1000).unref();
+
+   var timer2 = setInterval(function() {
+     console.log('timer2');
+   }, 1000);
+   ```
+
+   ![](http://otsuptraw.bkt.clouddn.com/%E5%B1%8F%E5%B9%95%E5%BF%AB%E7%85%A7%202017-08-11%20%E4%B8%8A%E5%8D%8810.59.47.png)
